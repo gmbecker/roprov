@@ -30,3 +30,6 @@ hashprefix(obj)
 \arguments{
 \item{obj}{The object.}
 }
+\description{
+Accessors for information in roprov objects.
+}

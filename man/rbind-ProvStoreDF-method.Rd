@@ -16,3 +16,6 @@ identical hashprefix values}
 \value{
 A ProvStoreDF object.
 }
+\description{
+an rbind method for ProvStoreDF objects
+}

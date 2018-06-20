@@ -1,4 +1,4 @@
-##' @import CodeDepends fastdigest
+##' @import CodeDepends fastdigest methods
 
 ##' @exportClass ProvStoreDF
 ##' @rdname ProvStoreDF
@@ -226,6 +226,7 @@ ProvStoreDF = function(outputvar = character(),
 }
 
 ##' @title Accessors
+##' @description Accessors for information in roprov objects.
 ##' @rdname accessors
 ##' @param obj The object.
 ##' @export
@@ -360,6 +361,7 @@ provextranodes = function(df) {
 
 setGeneric("rbind", signature = "...", def = base::rbind)
 ##' @title rbind method
+##' @description an rbind method for ProvStoreDF objects
 ##' @param \dots Two or more ProvStoreDF objects. Must all have
 ##'     identical hashprefix values
 ##' @param deparse.level ignored.
@@ -387,7 +389,7 @@ setMethod("rbind", "ProvStoreDF",
 ProvStores = function(...) {
     args = list(...)
     cls = sapply(args, class)
-    hpref = sappluy(args, hashprefix)
+    hpref = sapply(args, hashprefix)
     ## just for now
     stopifnot(identical(unique(cls), "ProvStoreDF"),
               length(unique(hpref)) == 1)
