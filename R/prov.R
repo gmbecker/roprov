@@ -48,6 +48,7 @@ provdf = function(outputvar = character(),
 ## XXX TODO make a generic and support ScriptInfo
 ##' alloutputs
 ##' @description Get all output variables (outputs + updates) from a ScriptNodeInfo object
+##' @invar
 ##' @return a character vector of all variables which were created or modified
 ##' by the expression corresponding to \code{x}
 ##' @export
@@ -56,9 +57,17 @@ cback1 = function(invar, prevouts, prevouthashes, prevoutclasses) {
     
     revprev = rev(prevouts)
     ind = match(invar, revprev)
-    if(is.na(ind)) stop("input variable ", invar, "not found as previous output. Incomplete history?")
+    if(is.na(ind)) {
+        warning("input variable ", invar, "not found as previous output.",
+                "Looking for current value in .GlobalEnv.")
+        val = try(get(invar, envir = .GlobalEnv))
+        if(!is(val, "try-error"))
+            return(list(hash = fastdigest(val),
+                        class = head(class(val), 1)))
+        stop("Unable to determine hash and class of input var ",
+             invar)
+    }
     realind = length(prevouts) - ind + 1 # 1-based indices
-    print(realind)
     list(hash = prevouthashes[realind],
          class = prevoutclasses[realind])
 }
@@ -86,7 +95,8 @@ provFromHistory = function(outvar, outvarhash, outvarclass, invars,
     lsts = lapply(invars, cback1, prevouts = prevouts,
                   prevouthashes = prevouthashes,
                   prevoutclasses = prevoutclasses)
-
+    lsts = lsts[!sapply(lsts, is.null)]
+    
     invarhashes = sapply(lsts, function(x) x$hash)
     invarclasses = sapply(lsts, function(x) x$class)
     makeProvStore(invarhashes = invarhashes, invarclasses = invarclasses,
