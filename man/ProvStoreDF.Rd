@@ -12,9 +12,9 @@ makeProvStore(invarhashes = NULL, outvarhashes = NULL, code = NULL,
   outvars = names(outvarhashes), invarclasses = character(),
   outvarclasses = character(), agent = getUser(), hashprefix = "SpookyV2")
 
-ProvStoreDF(outputvar = character(), outputvarhash = character(),
-  outputvarclass = character(), inputvar = character(),
-  inputvarhash = character(), inputvarclass = character(),
+ProvStoreDF(outvars = character(), outvarhashes = character(),
+  outvarclasses = character(), invars = character(),
+  invarhashes = character(), invarclasses = character(),
   agent = character(), code = character(), codehash = vapply(code,
   fastdigest, character(1)), hashprefix = "SpookyV2", df = NULL)
 }
@@ -36,6 +36,12 @@ code.}
 
 \item{outvars}{character. The output variable(s) (symbols) to
 \code{code}.}
+
+\item{invarclasses}{character. The (top level) classes of the
+input variable values.}
+
+\item{outvarclasses}{character. The (top level) classes of the
+output variable values.}
 
 \item{agent}{character. a string identifying the user. Defaults to
 the output of a \code{whoami} system call.}
@@ -60,4 +66,37 @@ appropriate replication on inputs will happen automatically.
 
 ProvStoreDF is a direct constructor and thus expects the replciation of
 inputs for multiple outputs to have already occurred.
+}
+\examples{
+## spoof the information needed to create a provstore
+library(fastdigest)
+code = c("x = 5", "y = x + 1")
+outvars = c("x", "y")
+outvarhashes = c(fastdigest(5), fastdigest(6))
+outvarclasses = rep("numeric", 2)
+invars = c("", "x")
+invarhashes = c("", fastdigest(5))
+invarclasses = c("", "numeric")
+
+ps = ProvStoreDF(outvars = outvars,
+                 outvarhashes = outvarhashes,
+                 outvarclasses = outvarclasses,
+                 invars = invars,
+                 invarhashes = invarhashes,
+                 invarclasses = invarclasses,
+                 code = code,
+                 agent = "coolguyorgirl")
+
+ df = data.frame(outputvar = outvars,
+                 outputvarhash = outvarhashes,
+                 outputvarclass = outvarclasses,
+                 inputvar= invars,
+                 inputvarhash = invarhashes,
+                 inputvarclass = invarclasses,
+                 agent = "coolgirloruy",
+                 code = code,
+                 codehash = sapply(code, fastdigest),
+                 stringsAsFactors = FALSE)
+
+ps2 = ProvStoreDF(df = df)
 }

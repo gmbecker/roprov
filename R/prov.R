@@ -1,4 +1,6 @@
 ##' @import CodeDepends fastdigest methods
+##' @importFrom utils head
+
 
 ##' @exportClass ProvStoreDF
 ##' @rdname ProvStoreDF
@@ -45,13 +47,22 @@ provdf = function(outputvar = character(),
 
 
 
-## XXX TODO make a generic and support ScriptInfo
-##' alloutputs
-##' @description Get all output variables (outputs + updates) from a ScriptNodeInfo object
-##' @invar
-##' @return a character vector of all variables which were created or modified
-##' by the expression corresponding to \code{x}
-##' @export
+## XXX TODO make a generic and support ScriptInfo ' alloutputs
+##' @title cback1
+##' @description Determine the hash and class of a varaible based on
+##'     the most recent ouput values for that variable captured as a
+##'     previous output. Not intended for direct use by end users.
+##' @param invar The variable to find
+##' @param prevouts Previous output variables
+##' @param prevouthashes Hashes for the previous output variables
+##' @param prevoutclasses Classes for the previous output variables
+##' @details If the variable is not found in the previous outputs, the
+##'     .Global environment is inspected for a current value of the
+##'     variable. This is necessary to capture things that can show up
+##'     via lazyloading without ever being an output v, e.g., the
+##'     mtcars dataset.
+##' @return a list containing the hash and class of the variable.
+##'
 
 cback1 = function(invar, prevouts, prevouthashes, prevoutclasses) {
     
@@ -112,7 +123,7 @@ getUser = function() system("whoami", intern=TRUE)
 ##' @title ProvStoreDF constructors and class
 ##' @description Functions to create a valid ProvStore object from raw data
 ##' about evaluation history (including hashes of input and output variable
-##' values).
+##' values). 
 ##'
 ##' @details makeProvStore expects information about a single code unit. i.e.,
 ##' all input values will be counted as inputs for all outputs. For
@@ -134,6 +145,10 @@ getUser = function() system("whoami", intern=TRUE)
 ##'     \code{code}
 ##' @param outvars character. The output variable(s) (symbols) to
 ##'     \code{code}.
+##' @param invarclasses character. The (top level) classes of the
+##'     input variable values.
+##' @param outvarclasses character. The (top level) classes of the
+##'     output variable values.
 ##' @param agent character. a string identifying the user. Defaults to
 ##'     the output of a \code{whoami} system call.
 ##' @param hashprefix character. A prefix to append to the hashes if
@@ -190,10 +205,10 @@ makeProvStore = function(invarhashes = NULL, outvarhashes = NULL, code = NULL,
     ## cat("\noutvars: ", outvars, "\ninvars: ", invars,
     ##     "\ncode(nchar): ", code,"(", nchar(code), ")", "\ncodehash: ", codehash,
     ##     "\nagent: ", agent, sep = " ")
-    ProvStoreDF(outputvar = outvars, outputvarhash = outvarhashes,
-                outputvarclass = outvarclasses,
-                inputvar = invars, inputvarhash = invarhashes,
-                inputvarclass = invarclasses,
+    ProvStoreDF(outvars = outvars, outvarhashes = outvarhashes,
+                outvarclasses = outvarclasses,
+                invars = invars, invarhashes = invarhashes,
+                invarclasses = invarclasses,
                 agent = agent, code = code,
                 codehash = codehash,
                 hashprefix = hashprefix)
@@ -207,13 +222,45 @@ makeProvStore = function(invarhashes = NULL, outvarhashes = NULL, code = NULL,
 ##' @param df data.frame. Optional. An already constructed data.frame
 ##'     do use as the provdata of the constructed \code{ProvStoreDF}
 ##'     object.
+##' @examples
+##' ## spoof the information needed to create a provstore
+##' library(fastdigest)
+##' code = c("x = 5", "y = x + 1")
+##' outvars = c("x", "y")
+##' outvarhashes = c(fastdigest(5), fastdigest(6))
+##' outvarclasses = rep("numeric", 2)
+##' invars = c("", "x")
+##' invarhashes = c("", fastdigest(5))
+##' invarclasses = c("", "numeric")
+##'
+##' ps = ProvStoreDF(outvars = outvars,
+##'                  outvarhashes = outvarhashes,
+##'                  outvarclasses = outvarclasses,
+##'                  invars = invars,
+##'                  invarhashes = invarhashes,
+##'                  invarclasses = invarclasses,
+##'                  code = code,
+##'                  agent = "coolguyorgirl")
+##'
+##'  df = data.frame(outputvar = outvars,
+##'                  outputvarhash = outvarhashes,
+##'                  outputvarclass = outvarclasses,
+##'                  inputvar= invars,
+##'                  inputvarhash = invarhashes,
+##'                  inputvarclass = invarclasses,
+##'                  agent = "coolgirloruy",
+##'                  code = code,
+##'                  codehash = sapply(code, fastdigest),
+##'                  stringsAsFactors = FALSE)
+##'
+##' ps2 = ProvStoreDF(df = df)
 ##' @export
-ProvStoreDF = function(outputvar = character(),
-                       outputvarhash = character(),
-                       outputvarclass = character(),
-                  inputvar = character(),
-                  inputvarhash = character(),
-                  inputvarclass = character(),
+ProvStoreDF = function(outvars = character(),
+                       outvarhashes = character(),
+                       outvarclasses = character(),
+                  invars = character(),
+                  invarhashes = character(),
+                  invarclasses = character(),
                   agent = character(),
                   code = character(),
                   codehash = vapply(code, fastdigest, character(1)),
@@ -221,12 +268,12 @@ ProvStoreDF = function(outputvar = character(),
                   df = NULL) {
     
     if(is.null(df)) {
-        df = provdf(outputvar = outputvar,
-                    outputvarhash = outputvarhash,
-                    outputvarclass = outputvarclass,
-               inputvar = inputvar,
-               inputvarhash = inputvarhash,
-               inputvarclass = inputvarclass,
+        df = provdf(outputvar = outvars,
+                    outputvarhash = outvarhashes,
+                    outputvarclass = outvarclasses,
+               inputvar = invars,
+               inputvarhash = invarhashes,
+               inputvarclass = invarclasses,
                agent = agent,
                code = code,
                codehash = codehash)
@@ -236,23 +283,60 @@ ProvStoreDF = function(outputvar = character(),
 }
 
 ##' @title Accessors
-##' @description Accessors for information in roprov objects.
+##' @description Accessors for information in roprov objects
 ##' @rdname accessors
 ##' @param obj The object.
+##' @docType methods
+##' @examples
+##' library(fastdigest)
+##' code = c("x = 5", "y = x + 1")
+##' outvars = c("x", "y")
+##' outvarhashes = c(fastdigest(5), fastdigest(6))
+##' outvarclasses = rep("numeric", 2)
+##' invars = c("", "x")
+##' invarhashes = c("", fastdigest(5))
+##' invarclasses = c("", "numeric")
+##'
+##' ps = ProvStoreDF(outvars = outvars,
+##'                  outvarhashes = outvarhashes,
+##'                  outvarclasses = outvarclasses,
+##'                  invars = invars,
+##'                  invarhashes = invarhashes,
+##'                  invarclasses = invarclasses,
+##'                  code = code,
+##'                  agent = "coolguyorgirl")
+##' outputvars(ps)
+##' outputvarhashes(ps)
+##' outputvarclasses(ps)
+##' inputvars(ps)
+##' inputvarhashes(ps)
+##' inputvarclasses(ps)
+##' provdata(ps)
+##' hashprefix(ps)
+
 ##' @export
 setGeneric("outputvars", function(obj) standardGeneric("outputvars"))
+##' @rdname accessors
+##' @export
+##' @aliases outputvars,ProvStoreDF
 setMethod("outputvars", "ProvStoreDF", function(obj) provdata(obj)$outputvar)
 
 ##' @rdname accessors
 ##' @export
 ##' @aliases outputvarhashes
 setGeneric("outputvarhashes", function(obj) standardGeneric("outputvarhashes"))
+##' @rdname accessors
+##' @export
+##' @aliases outputvarhashes,ProvStoreDF
 setMethod("outputvarhashes", "ProvStoreDF", function(obj) provdata(obj)$outputvarhash)
 
 ##' @rdname accessors
 ##' @export
 ##' @aliases outputvarclasses
 setGeneric("outputvarclasses", function(obj) standardGeneric("outputvarclasses"))
+##' @rdname accessors
+##' @export
+##' @aliases outputvarclasses,ProvStoreDF
 setMethod("outputvarclasses", "ProvStoreDF", function(obj) provdata(obj)$outputvarclass)
 
 
@@ -260,24 +344,36 @@ setMethod("outputvarclasses", "ProvStoreDF", function(obj) provdata(obj)$outputv
 ##' @export
 ##' @aliases inputvars
 setGeneric("inputvars", function(obj) standardGeneric("inputvars"))
+##' @rdname accessors
+##' @export
+##' @aliases inputvars,ProvStoreDF
 setMethod("inputvars", "ProvStoreDF", function(obj) provdata(obj)$inputvar)
 
 ##' @rdname accessors
 ##' @export
 ##' @aliases inputvarhashes
 setGeneric("inputvarhashes", function(obj) standardGeneric("inputvarhashes"))
+##' @rdname accessors
+##' @export
+##' @aliases inputvarhashes
 setMethod("inputvarhashes", "ProvStoreDF", function(obj) provdata(obj)$inputvarhash)
 
 ##' @rdname accessors
 ##' @export
 ##' @aliases inputvarclasses
 setGeneric("inputvarclasses", function(obj) standardGeneric("inputvarclasses"))
+##' @rdname accessors
+##' @export
+##' @aliases inputvarclasses,ProvStoreDF
 setMethod("inputvarclasses", "ProvStoreDF", function(obj) provdata(obj)$inputvarclass)
 
 ##' @rdname accessors
 ##' @export
 ##' @aliases provdata
 setGeneric("provdata", function(obj) standardGeneric("provdata"))
+##' @rdname accessors
+##' @export
+##' @aliases provdata,ProvStoreDF
 setMethod("provdata", "ProvStoreDF", function(obj) obj@provdata)
 
 
@@ -285,6 +381,9 @@ setMethod("provdata", "ProvStoreDF", function(obj) obj@provdata)
 ##' @export
 ##' @aliases hashprefix
 setGeneric("hashprefix", function(obj) standardGeneric("hashprefix"))
+##' @rdname accessors
+##' @export
+##' @aliases hashprefix,ProvStoreDF
 setMethod("hashprefix", "ProvStoreDF", function(obj) obj@hashprefix)
 
 
@@ -315,19 +414,42 @@ setAs("data.frame", "ProvStoreDF", function(from) {
 ##'     data.frame specified. This can include the same variable
 ##'     multiple times if the corresponding expression is run with
 ##'     different inputs.
-##' @param cacheobj a CachingEngine or CodeSetCache object. Ignored if
-##'     \code{df} is set.
-##' @param df ProvStoreDF (or appropriately formatted
-##'     data.frame). Generally \code{cacheobj} should be specified and
-##'     the default of \code{cacheobj$provstore} should be used.
+##' @param provstore The provenance store data to use when generating the graph
 ##' @return an igraph object representing the provenance graph
 ##' @docType methods
+##' @rdname fullprovgraph
+##' @examples
+##' library(fastdigest)
+##' code = c("x = 5", "y = x + 1")
+##' outvars = c("x", "y")
+##' outvarhashes = c(fastdigest(5), fastdigest(6))
+##' outvarclasses = rep("numeric", 2)
+##' invars = c("", "x")
+##' invarhashes = c("", fastdigest(5))
+##' invarclasses = c("", "numeric")
+##'
+##' ps = ProvStoreDF(outvars = outvars,
+##'                  outvarhashes = outvarhashes,
+##'                  outvarclasses = outvarclasses,
+##'                  invars = invars,
+##'                  invarhashes = invarhashes,
+##'                  invarclasses = invarclasses,
+##'                  code = code,
+##'                  agent = "coolguyorgirl")
+##'
+##' plot(fullprovgraph(ps))
 ##' @export
 setGeneric("fullprovgraph", function(provstore) standardGeneric("fullprovgraph"))
 
+##' @rdname fullprovgraph
+##' @export
+##' @aliases fullprovgraph,ProvStoreDF
 setMethod("fullprovgraph", "ProvStoreDF",
           function(provstore) fullprovgraph(provdata(provstore)))
 
+##' @rdname fullprovgraph
+##' @export
+##' @aliases fullprovgraph,data.frame
 setMethod("fullprovgraph", "data.frame",
           function(provstore) {
     provcolnames = names(provdf())
@@ -369,14 +491,41 @@ provextranodes = function(df) {
 
 }
 
-setGeneric("rbind", signature = "...", def = base::rbind)
+##' @export
+##' @rdname rbind
+setGeneric("rbind", signature = "...")
 ##' @title rbind method
 ##' @description an rbind method for ProvStoreDF objects
 ##' @param \dots Two or more ProvStoreDF objects. Must all have
 ##'     identical hashprefix values
 ##' @param deparse.level ignored.
 ##' @return A ProvStoreDF object.
-##' @export
+##' @examples
+##' library(fastdigest)
+##' library(roprov)
+##' code = c("x = 5", "y = x + 1")
+##' outvars = c("x", "y")
+##' outvarhashes = c(fastdigest(5), fastdigest(6))
+##' outvarclasses = rep("numeric", 2)
+##' invars = c("", "x")
+##' invarhashes = c("", fastdigest(5))
+##' invarclasses = c("", "numeric")
+##'  df = data.frame(outputvar = outvars,
+##'                  outputvarhash = outvarhashes,
+##'                  outputvarclass = outvarclasses,
+##'                  inputvar= invars,
+##'                  inputvarhash = invarhashes,
+##'                  inputvarclass = invarclasses,
+##'                  agent = "coolgirloruy",
+##'                  code = code,
+##'                  codehash = sapply(code, fastdigest),
+##'                  stringsAsFactors = FALSE)
+##'
+##' ps2 = ProvStoreDF(df = df)
+##' rbind(ps2, ps2)
+##' @docType methods
+##' @rdname rbind
+##' @exportMethod rbind
 setMethod("rbind", "ProvStoreDF",
           function(..., deparse.level = 1) {
     args = list(...)
@@ -396,6 +545,7 @@ setMethod("rbind", "ProvStoreDF",
 ##' @description This operation is conceptually 
 ##' @param \dots Two or more ProvStoreDF objects
 ##' @return A ProvStoreDF object
+##' @export
 ProvStores = function(...) {
     args = list(...)
     cls = sapply(args, class)

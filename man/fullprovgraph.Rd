@@ -3,18 +3,21 @@
 \docType{methods}
 \name{fullprovgraph}
 \alias{fullprovgraph}
+\alias{fullprovgraph,ProvStoreDF-method}
+\alias{fullprovgraph,ProvStoreDF}
+\alias{fullprovgraph,data.frame-method}
+\alias{fullprovgraph,data.frame}
 \title{Create the full (multiple values per variable) provenance
     graph for a cache}
 \usage{
 fullprovgraph(provstore)
+
+\S4method{fullprovgraph}{ProvStoreDF}(provstore)
+
+\S4method{fullprovgraph}{data.frame}(provstore)
 }
 \arguments{
-\item{cacheobj}{a CachingEngine or CodeSetCache object. Ignored if
-\code{df} is set.}
-
-\item{df}{ProvStoreDF (or appropriately formatted
-data.frame). Generally \code{cacheobj} should be specified and
-the default of \code{cacheobj$provstore} should be used.}
+\item{provstore}{The provenance store data to use when generating the graph}
 }
 \value{
 an igraph object representing the provenance graph
@@ -25,4 +28,25 @@ This generates and returns the \emph{full} provenance
     data.frame specified. This can include the same variable
     multiple times if the corresponding expression is run with
     different inputs.
+}
+\examples{
+library(fastdigest)
+code = c("x = 5", "y = x + 1")
+outvars = c("x", "y")
+outvarhashes = c(fastdigest(5), fastdigest(6))
+outvarclasses = rep("numeric", 2)
+invars = c("", "x")
+invarhashes = c("", fastdigest(5))
+invarclasses = c("", "numeric")
+
+ps = ProvStoreDF(outvars = outvars,
+                 outvarhashes = outvarhashes,
+                 outvarclasses = outvarclasses,
+                 invars = invars,
+                 invarhashes = invarhashes,
+                 invarclasses = invarclasses,
+                 code = code,
+                 agent = "coolguyorgirl")
+
+plot(fullprovgraph(ps))
 }

@@ -2,14 +2,31 @@
 % Please edit documentation in R/prov.R
 \name{cback1}
 \alias{cback1}
-\title{alloutputs}
+\title{cback1}
 \usage{
 cback1(invar, prevouts, prevouthashes, prevoutclasses)
 }
+\arguments{
+\item{invar}{The variable to find}
+
+\item{prevouts}{Previous output variables}
+
+\item{prevouthashes}{Hashes for the previous output variables}
+
+\item{prevoutclasses}{Classes for the previous output variables}
+}
 \value{
-a character vector of all variables which were created or modified
-by the expression corresponding to \code{x}
+a list containing the hash and class of the variable.
 }
 \description{
-Get all output variables (outputs + updates) from a ScriptNodeInfo object
+Determine the hash and class of a varaible based on
+    the most recent ouput values for that variable captured as a
+    previous output. Not intended for direct use by end users.
+}
+\details{
+If the variable is not found in the previous outputs, the
+    .Global environment is inspected for a current value of the
+    variable. This is necessary to capture things that can show up
+    via lazyloading without ever being an output v, e.g., the
+    mtcars dataset.
 }

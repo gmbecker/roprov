@@ -1,6 +1,6 @@
 Package: roprov
-Version: 0.0.3
-Title: Low-level Support for Provenance Capture Between In-memory R Objects
+Version: 0.1.0
+Title: Low-Level Support for Provenance Capture Between in-Memory R Objects
 Description: A suite of classes and methods which provide low-level support for modeling provenance between in-memory R objects. This is an infrastructure package and is not intended to be used directly by end-users.
 Author: Gabriel Becker
 Depends: methods, fastdigest
