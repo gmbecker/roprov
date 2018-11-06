@@ -115,7 +115,7 @@ provFromHistory = function(outvar, outvarhash, outvarclass, invars,
                code = code, invars = invars, outvars = outvar)
 }
         
-getUser = function() system("whoami", intern=TRUE)
+getUser = function() unname(Sys.info()["user"])
 
 .fixcode = function(code) paste(code, collapse="\n")
 
